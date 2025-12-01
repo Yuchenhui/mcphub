@@ -1,0 +1,239 @@
+{
+  "timestamp": "2025-12-01T12:10:33.000Z",
+  "version": "1.0.0",
+  "project": {
+    "name": "mcphub",
+    "description": "A hub server for mcp servers",
+    "version": "dev",
+    "mainLanguage": "TypeScript",
+    "packageManager": "pnpm@10.12.4"
+  },
+  "modules": [
+    {
+      "name": "backend",
+      "path": "src/",
+      "type": "backend",
+      "language": "TypeScript",
+      "description": "MCP 服务编排、HTTP API 网关、认证授权、数据持久化",
+      "entry": "src/index.ts",
+      "server": "src/server.ts",
+      "routes": "src/routes/index.ts",
+      "keyServices": [
+        "src/services/mcpService.ts",
+        "src/services/sseService.ts",
+        "src/services/vectorSearchService.ts",
+        "src/services/oauthService.ts",
+        "src/services/oauthServerService.ts"
+      ],
+      "controllers": "src/controllers/",
+      "dao": "src/dao/",
+      "database": "src/db/",
+      "middlewares": "src/middlewares/",
+      "tests": "tests/",
+      "coverage": {
+        "hasTests": true,
+        "testFiles": [
+          "tests/services/*.test.ts",
+          "tests/controllers/*.test.ts",
+          "tests/integration/*.test.ts",
+          "src/services/__tests__/*.test.ts"
+        ]
+      }
+    },
+    {
+      "name": "frontend",
+      "path": "frontend/",
+      "type": "frontend",
+      "language": "TypeScript",
+      "framework": "React",
+      "buildTool": "Vite",
+      "description": "可视化管理界面、服务器/组/用户管理、实时监控",
+      "entry": "frontend/src/main.tsx",
+      "app": "frontend/src/App.tsx",
+      "pages": "frontend/src/pages/",
+      "components": "frontend/src/components/",
+      "services": "frontend/src/services/",
+      "hooks": "frontend/src/hooks/",
+      "contexts": "frontend/src/contexts/",
+      "config": "frontend/vite.config.ts",
+      "coverage": {
+        "hasTests": false,
+        "note": "前端测试通过后端集成测试覆盖"
+      }
+    },
+    {
+      "name": "tests",
+      "path": "tests/",
+      "type": "testing",
+      "language": "TypeScript",
+      "framework": "Jest",
+      "description": "单元测试、集成测试、测试工具与辅助函数",
+      "setup": "tests/setup.ts",
+      "utils": "tests/utils/",
+      "integration": "tests/integration/",
+      "services": "tests/services/",
+      "controllers": "tests/controllers/",
+      "config": "jest.config.cjs",
+      "coverage": {
+        "hasTests": true,
+        "testCount": 73,
+        "note": "参考 pnpm test:ci 输出"
+      }
+    },
+    {
+      "name": "docs",
+      "path": "docs/",
+      "type": "documentation",
+      "framework": "Mintlify",
+      "description": "API 参考文档、用户指南、功能说明",
+      "config": "docs/docs.json",
+      "apiReference": "docs/api-reference/",
+      "features": "docs/features/",
+      "configuration": "docs/configuration/",
+      "deployment": "https://docs.mcphubx.com/",
+      "coverage": {
+        "hasTests": false,
+        "note": "文档质量通过 Mintlify 构建验证"
+      }
+    }
+  ],
+  "coverage": {
+    "estimated": {
+      "totalFiles": 250,
+      "scannedFiles": 150,
+      "coveragePercent": 60,
+      "note": "核心模块已完整扫描，辅助文件部分扫描"
+    },
+    "modulesCovered": {
+      "backend": {
+        "entry": true,
+        "routes": true,
+        "controllers": true,
+        "services": true,
+        "dao": true,
+        "database": true,
+        "middlewares": true,
+        "tests": true,
+        "missingAreas": [
+          "src/clients/openapi.ts 详细逻辑",
+          "src/services/cloudService.ts 详细逻辑",
+          "src/services/marketService.ts 详细逻辑"
+        ]
+      },
+      "frontend": {
+        "entry": true,
+        "pages": true,
+        "components": true,
+        "services": true,
+        "hooks": true,
+        "contexts": true,
+        "missingAreas": [
+          "具体组件实现细节",
+          "表单验证逻辑细节",
+          "UI 交互逻辑细节"
+        ]
+      },
+      "tests": {
+        "setup": true,
+        "utils": true,
+        "integration": true,
+        "services": true,
+        "controllers": true,
+        "missingAreas": [
+          "个别测试文件的详细逻辑"
+        ]
+      },
+      "docs": {
+        "structure": true,
+        "config": true,
+        "apiReference": true,
+        "features": true,
+        "missingAreas": [
+          "具体文档内容细节"
+        ]
+      }
+    }
+  },
+  "ignoredPaths": {
+    "fromGitignore": [
+      "node_modules/**",
+      "dist/**",
+      ".env",
+      ".env.local",
+      "*.log",
+      "coverage/**",
+      "data/**",
+      "temp-test-config/**"
+    ],
+    "default": [
+      ".git/**",
+      ".github/**",
+      "*.lock",
+      "*.bin",
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.mp4",
+      "*.zip",
+      "*.tar",
+      "*.gz"
+    ]
+  },
+  "keyPaths": {
+    "rootDocs": [
+      "CLAUDE.md",
+      "README.md",
+      "README.zh.md",
+      "AGENTS.md",
+      ".github/copilot-instructions.md"
+    ],
+    "moduleDocs": [
+      "src/CLAUDE.md",
+      "frontend/CLAUDE.md",
+      "tests/CLAUDE.md",
+      "docs/CLAUDE.md"
+    ],
+    "config": [
+      "package.json",
+      "tsconfig.json",
+      "jest.config.cjs",
+      ".eslintrc.json",
+      ".prettierrc",
+      "mcp_settings.json",
+      ".env.example",
+      "docker-compose.db.yml",
+      "Dockerfile"
+    ]
+  },
+  "recommendations": {
+    "nextSteps": [
+      "深入扫描 src/services/mcpService.ts - 理解 MCP 连接管理核心逻辑",
+      "深入扫描 src/services/vectorSearchService.ts - 理解智能路由向量搜索实现",
+      "深入扫描 src/db/connection.ts - 理解 pgvector 初始化与索引创建",
+      "深入扫描 tests/integration/server-smart-routing.test.ts - 理解端到端测试流程",
+      "深入扫描 frontend/src/pages/Dashboard.tsx - 理解前端数据流与状态管理"
+    ],
+    "highPriorityFiles": [
+      "src/services/mcpService.ts",
+      "src/services/sseService.ts",
+      "src/services/vectorSearchService.ts",
+      "src/db/connection.ts",
+      "src/utils/migration.ts",
+      "frontend/src/utils/fetchInterceptor.ts",
+      "tests/integration/server-smart-routing.test.ts"
+    ]
+  },
+  "truncated": false,
+  "scanStrategy": "adaptive-medium",
+  "notes": [
+    "项目采用 ESM 模块系统，导入路径必须使用 .js 扩展名",
+    "支持双数据源（JSON 文件 / PostgreSQL），修改数据结构需同步更新 7 个位置",
+    "测试套件包含 73+ 测试用例，覆盖单元测试与集成测试",
+    "前端使用 React 19 + Vite 6，采用 Tailwind CSS 4",
+    "Docker 镜像基于 Python 3.13 + Node.js 22，支持多种 MCP 服务器类型",
+    "智能路由功能基于 pgvector 实现语义搜索，需要 PostgreSQL 数据库",
+    "OAuth 支持双模式：客户端（连接上游 MCP）+ 服务器（提供自身 OAuth）"
+  ]
+}
