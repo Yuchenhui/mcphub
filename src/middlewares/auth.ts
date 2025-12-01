@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { loadSettings } from '../config/index.js';
 import defaultConfig from '../config/index.js';
 import { JWT_SECRET } from '../config/jwt.js';
 import { getToken } from '../models/OAuth.js';
 import { isOAuthServerEnabled } from '../services/oauthServerService.js';
+import { getSystemConfigDao } from '../dao/DaoFactory.js';
 
 const validateBearerAuth = (req: Request, routingConfig: any): boolean => {
   if (!routingConfig.enableBearerAuth) {
@@ -44,13 +44,31 @@ export const auth = async (req: Request, res: Response, next: NextFunction): Pro
   }
 
   // Check if authentication is disabled globally
-  const routingConfig = loadSettings().systemConfig?.routing || {
+  // Use DAO to get config from database in database mode
+  const systemConfigDao = getSystemConfigDao();
+  let routingConfig = {
     enableGlobalRoute: true,
     enableGroupNameRoute: true,
     enableBearerAuth: false,
     bearerAuthKey: '',
     skipAuth: false,
   };
+
+  try {
+    // Try to get cached config first (synchronous), fall back to async if needed
+    const cachedConfig = (systemConfigDao as any).getCached?.();
+    if (cachedConfig?.routing) {
+      routingConfig = { ...routingConfig, ...cachedConfig.routing };
+    } else {
+      // Fall back to async call
+      const systemConfig = await systemConfigDao.get();
+      if (systemConfig?.routing) {
+        routingConfig = { ...routingConfig, ...systemConfig.routing };
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load routing config from DAO, using defaults:', error);
+  }
 
   if (routingConfig.skipAuth) {
     next();

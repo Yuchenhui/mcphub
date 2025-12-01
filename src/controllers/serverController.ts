@@ -14,6 +14,7 @@ import { syncAllServerToolsEmbeddings } from '../services/vectorSearchService.js
 import { createSafeJSON } from '../utils/serialization.js';
 import { cloneDefaultOAuthServerConfig } from '../constants/oauthServerDefaults.js';
 import { getServerDao, getGroupDao, getSystemConfigDao } from '../dao/DaoFactory.js';
+import { clearSmartRoutingCache } from '../utils/smartRouting.js';
 
 export const getAllServers = async (_: Request, res: Response): Promise<void> => {
   try {
@@ -886,6 +887,10 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
     // Save using DAO (supports both file and database modes)
     try {
       await systemConfigDao.update(systemConfig);
+
+      // Clear smart routing cache to ensure fresh config is used
+      clearSmartRoutingCache();
+
       res.json({
         success: true,
         data: systemConfig,

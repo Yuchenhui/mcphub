@@ -4,6 +4,7 @@ import { loadSettings, loadOriginalSettings } from '../config/index.js';
 import { getDataService } from '../services/services.js';
 import { DataService } from '../services/dataService.js';
 import { IUser } from '../types/index.js';
+import { getSystemConfigDao } from '../dao/DaoFactory.js';
 
 const dataService: DataService = getDataService();
 
@@ -39,10 +40,26 @@ export const getRuntimeConfig = (req: Request, res: Response): void => {
  * Get public system configuration (only skipAuth setting)
  * This endpoint doesn't require authentication to allow checking if auth should be skipped
  */
-export const getPublicConfig = (req: Request, res: Response): void => {
+export const getPublicConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    const settings = loadSettings();
-    const skipAuth = settings.systemConfig?.routing?.skipAuth || false;
+    // Use DAO to get config from database in database mode
+    const systemConfigDao = getSystemConfigDao();
+    let skipAuth = false;
+
+    try {
+      const cachedConfig = (systemConfigDao as any).getCached?.();
+      if (cachedConfig?.routing) {
+        skipAuth = cachedConfig.routing.skipAuth || false;
+      } else {
+        const systemConfig = await systemConfigDao.get();
+        skipAuth = systemConfig?.routing?.skipAuth || false;
+      }
+    } catch (error) {
+      // Fall back to file-based settings
+      const settings = loadSettings();
+      skipAuth = settings.systemConfig?.routing?.skipAuth || false;
+    }
+
     let permissions = {};
     if (skipAuth) {
       const user: IUser = {

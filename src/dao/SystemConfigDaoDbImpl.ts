@@ -4,16 +4,22 @@ import { SystemConfigRepository } from '../db/repositories/SystemConfigRepositor
 
 /**
  * Database-backed implementation of SystemConfigDao
+ * Includes caching for synchronous access to frequently used configuration
  */
 export class SystemConfigDaoDbImpl implements SystemConfigDao {
   private repository: SystemConfigRepository;
+  private cachedConfig: SystemConfig | null = null;
+  private cacheTimestamp: number = 0;
+  private static readonly CACHE_TTL_MS = 10000; // 10 seconds cache TTL
 
   constructor() {
     this.repository = new SystemConfigRepository();
   }
 
-  async get(): Promise<SystemConfig> {
-    const config = await this.repository.get();
+  /**
+   * Convert repository config to SystemConfig type
+   */
+  private toSystemConfig(config: any): SystemConfig {
     return {
       routing: config.routing as any,
       install: config.install as any,
@@ -24,34 +30,60 @@ export class SystemConfigDaoDbImpl implements SystemConfigDao {
       oauthServer: config.oauthServer as any,
       enableSessionRebuild: config.enableSessionRebuild,
     };
+  }
+
+  /**
+   * Get cached system configuration synchronously
+   * Returns null if cache is not available or expired
+   * Used by synchronous functions like getSmartRoutingConfig()
+   */
+  getCached(): SystemConfig | null {
+    const now = Date.now();
+    if (this.cachedConfig && now - this.cacheTimestamp < SystemConfigDaoDbImpl.CACHE_TTL_MS) {
+      return this.cachedConfig;
+    }
+    return null;
+  }
+
+  /**
+   * Clear the configuration cache
+   */
+  clearCache(): void {
+    this.cachedConfig = null;
+    this.cacheTimestamp = 0;
+  }
+
+  async get(): Promise<SystemConfig> {
+    const config = await this.repository.get();
+    const systemConfig = this.toSystemConfig(config);
+
+    // Update cache
+    this.cachedConfig = systemConfig;
+    this.cacheTimestamp = Date.now();
+
+    return systemConfig;
   }
 
   async update(config: Partial<SystemConfig>): Promise<SystemConfig> {
     const updated = await this.repository.update(config as any);
-    return {
-      routing: updated.routing as any,
-      install: updated.install as any,
-      smartRouting: updated.smartRouting as any,
-      mcpRouter: updated.mcpRouter as any,
-      nameSeparator: updated.nameSeparator,
-      oauth: updated.oauth as any,
-      oauthServer: updated.oauthServer as any,
-      enableSessionRebuild: updated.enableSessionRebuild,
-    };
+    const systemConfig = this.toSystemConfig(updated);
+
+    // Update cache
+    this.cachedConfig = systemConfig;
+    this.cacheTimestamp = Date.now();
+
+    return systemConfig;
   }
 
   async reset(): Promise<SystemConfig> {
     const config = await this.repository.reset();
-    return {
-      routing: config.routing as any,
-      install: config.install as any,
-      smartRouting: config.smartRouting as any,
-      mcpRouter: config.mcpRouter as any,
-      nameSeparator: config.nameSeparator,
-      oauth: config.oauth as any,
-      oauthServer: config.oauthServer as any,
-      enableSessionRebuild: config.enableSessionRebuild,
-    };
+    const systemConfig = this.toSystemConfig(config);
+
+    // Update cache
+    this.cachedConfig = systemConfig;
+    this.cacheTimestamp = Date.now();
+
+    return systemConfig;
   }
 
   async getSection<K extends keyof SystemConfig>(section: K): Promise<SystemConfig[K]> {

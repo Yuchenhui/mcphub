@@ -32,6 +32,16 @@ const servers: { [sessionId: string]: Server } = {};
 import { setupClientKeepAlive } from './keepAliveService.js';
 
 export const initUpstreamServers = async (): Promise<void> => {
+  // Pre-load system config to cache (important for smart routing to work correctly)
+  // This ensures getSmartRoutingConfig() has access to database config synchronously
+  try {
+    const systemConfigDao = getSystemConfigDao();
+    await systemConfigDao.get();
+    console.log('System config pre-loaded to cache');
+  } catch (error) {
+    console.warn('Failed to pre-load system config:', error);
+  }
+
   // Initialize OAuth clients for servers with dynamic registration
   await initializeAllOAuthClients();
 

@@ -1,4 +1,5 @@
 import { loadSettings, expandEnvVars } from '../config/index.js';
+import { getSystemConfigDao } from '../dao/DaoFactory.js';
 
 /**
  * Smart routing configuration interface
@@ -9,6 +10,69 @@ export interface SmartRoutingConfig {
   openaiApiBaseUrl: string;
   openaiApiKey: string;
   openaiApiEmbeddingModel: string;
+}
+
+// Cache for smart routing settings from database
+let smartRoutingSettingsCache: Partial<SmartRoutingConfig> | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_TTL_MS = 5000; // 5 seconds cache TTL
+
+/**
+ * Determines if database mode is enabled
+ */
+function isDatabaseMode(): boolean {
+  return process.env.USE_DB === 'true' || !!process.env.DB_URL;
+}
+
+/**
+ * Gets smart routing settings from the appropriate source (database or file)
+ * Uses caching to avoid frequent database queries
+ */
+function getSmartRoutingSettings(): Partial<SmartRoutingConfig> {
+  const now = Date.now();
+
+  // If using database mode and cache is valid, return cached value
+  if (isDatabaseMode()) {
+    if (smartRoutingSettingsCache && now - cacheTimestamp < CACHE_TTL_MS) {
+      return smartRoutingSettingsCache;
+    }
+
+    // Try to get from database synchronously via cached DAO
+    // Note: The DAO layer caches the system config, so this should be fast
+    try {
+      const systemConfigDao = getSystemConfigDao();
+      // Use the synchronous getCached method if available, otherwise fall back to cached value
+      const systemConfig = (systemConfigDao as any).getCached?.() || null;
+      if (systemConfig?.smartRouting) {
+        const routingSettings = systemConfig.smartRouting as Partial<SmartRoutingConfig>;
+        smartRoutingSettingsCache = routingSettings;
+        cacheTimestamp = now;
+        return routingSettings;
+      }
+    } catch (error) {
+      // Fall through to file-based settings
+    }
+  }
+
+  // Fall back to file-based settings
+  const settings = loadSettings();
+  return settings.systemConfig?.smartRouting || {};
+}
+
+/**
+ * Updates the smart routing settings cache (called after database updates)
+ */
+export function updateSmartRoutingCache(settings: Partial<SmartRoutingConfig>): void {
+  smartRoutingSettingsCache = settings;
+  cacheTimestamp = Date.now();
+}
+
+/**
+ * Clears the smart routing settings cache
+ */
+export function clearSmartRoutingCache(): void {
+  smartRoutingSettingsCache = null;
+  cacheTimestamp = 0;
 }
 
 /**
@@ -23,9 +87,7 @@ export interface SmartRoutingConfig {
  * @returns {SmartRoutingConfig} Complete smart routing configuration
  */
 export function getSmartRoutingConfig(): SmartRoutingConfig {
-  const settings = loadSettings();
-  const smartRoutingSettings: Partial<SmartRoutingConfig> =
-    settings.systemConfig?.smartRouting || {};
+  const smartRoutingSettings = getSmartRoutingSettings();
 
   return {
     // Enabled status - check multiple environment variables
