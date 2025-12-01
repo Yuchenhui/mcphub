@@ -6,11 +6,32 @@ import {
 } from '../services/oauthServerService.js';
 import { findOAuthClientById } from '../models/OAuth.js';
 import { loadSettings } from '../config/index.js';
+import { getSystemConfigDao } from '../dao/DaoFactory.js';
 import OAuth2Server from '@node-oauth/oauth2-server';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/jwt.js';
 
 const { Request: OAuth2Request, Response: OAuth2Response } = OAuth2Server;
+
+/**
+ * Get the actual protocol considering reverse proxy headers
+ */
+function getActualProtocol(req: Request): string {
+  const forwardedProto = (req.headers['x-forwarded-proto'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim();
+  return forwardedProto || req.protocol || 'http';
+}
+
+/**
+ * Get the actual host considering reverse proxy headers
+ */
+function getActualHost(req: Request): string {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim();
+  return forwardedHost || req.get('host') || 'localhost';
+}
 
 type AuthenticatedUser = {
   username: string;
@@ -441,16 +462,36 @@ export const getUserInfo = async (req: Request, res: Response): Promise<void> =>
  */
 export const getMetadata = async (req: Request, res: Response): Promise<void> => {
   try {
-    const settings = loadSettings();
-    const oauthConfig = settings.systemConfig?.oauthServer;
+    // Use DAO to get config from database in database mode
+    const systemConfigDao = getSystemConfigDao();
+    let oauthConfig;
+    let installConfig;
+
+    try {
+      const cachedConfig = (systemConfigDao as any).getCached?.();
+      if (cachedConfig) {
+        oauthConfig = cachedConfig.oauthServer;
+        installConfig = cachedConfig.install;
+      } else {
+        const systemConfig = await systemConfigDao.get();
+        oauthConfig = systemConfig?.oauthServer;
+        installConfig = systemConfig?.install;
+      }
+    } catch (error) {
+      // Fall back to file-based settings
+      const settings = loadSettings();
+      oauthConfig = settings.systemConfig?.oauthServer;
+      installConfig = settings.systemConfig?.install;
+    }
 
     if (!oauthConfig || !oauthConfig.enabled) {
       res.status(404).json({ error: 'OAuth server not configured' });
       return;
     }
 
+    // Use configured baseUrl, or detect from request headers (respecting X-Forwarded-Proto)
     const baseUrl =
-      settings.systemConfig?.install?.baseUrl || `${req.protocol}://${req.get('host')}`;
+      installConfig?.baseUrl || `${getActualProtocol(req)}://${getActualHost(req)}`;
     const allowedScopes = oauthConfig.allowedScopes || ['read', 'write'];
 
     const metadata: any = {
@@ -487,16 +528,36 @@ export const getMetadata = async (req: Request, res: Response): Promise<void> =>
  */
 export const getProtectedResourceMetadata = async (req: Request, res: Response): Promise<void> => {
   try {
-    const settings = loadSettings();
-    const oauthConfig = settings.systemConfig?.oauthServer;
+    // Use DAO to get config from database in database mode
+    const systemConfigDao = getSystemConfigDao();
+    let oauthConfig;
+    let installConfig;
+
+    try {
+      const cachedConfig = (systemConfigDao as any).getCached?.();
+      if (cachedConfig) {
+        oauthConfig = cachedConfig.oauthServer;
+        installConfig = cachedConfig.install;
+      } else {
+        const systemConfig = await systemConfigDao.get();
+        oauthConfig = systemConfig?.oauthServer;
+        installConfig = systemConfig?.install;
+      }
+    } catch (error) {
+      // Fall back to file-based settings
+      const settings = loadSettings();
+      oauthConfig = settings.systemConfig?.oauthServer;
+      installConfig = settings.systemConfig?.install;
+    }
 
     if (!oauthConfig || !oauthConfig.enabled) {
       res.status(404).json({ error: 'OAuth server not configured' });
       return;
     }
 
+    // Use configured baseUrl, or detect from request headers (respecting X-Forwarded-Proto)
     const baseUrl =
-      settings.systemConfig?.install?.baseUrl || `${req.protocol}://${req.get('host')}`;
+      installConfig?.baseUrl || `${getActualProtocol(req)}://${getActualHost(req)}`;
     const allowedScopes = oauthConfig.allowedScopes || ['read', 'write'];
 
     // Return protected resource metadata according to RFC 9728

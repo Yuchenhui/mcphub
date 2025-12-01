@@ -8,6 +8,27 @@ import {
 } from '../models/OAuth.js';
 import { IOAuthClient } from '../types/index.js';
 import { loadSettings } from '../config/index.js';
+import { getSystemConfigDao } from '../dao/DaoFactory.js';
+
+/**
+ * Get the actual protocol considering reverse proxy headers
+ */
+function getActualProtocol(req: Request): string {
+  const forwardedProto = (req.headers['x-forwarded-proto'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim();
+  return forwardedProto || req.protocol || 'http';
+}
+
+/**
+ * Get the actual host considering reverse proxy headers
+ */
+function getActualHost(req: Request): string {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim();
+  return forwardedHost || req.get('host') || 'localhost';
+}
 
 // Store registration access tokens (in production, use database)
 const registrationTokens = new Map<string, { clientId: string; createdAt: Date }>();
@@ -155,8 +176,21 @@ export const registerClient = (req: Request, res: Response): void => {
 
     // Generate registration access token
     const registrationAccessToken = generateRegistrationToken(clientId);
-    const baseUrl =
-      settings.systemConfig?.install?.baseUrl || `${req.protocol}://${req.get('host')}`;
+
+    // Get install config from DAO or fall back to settings
+    let installBaseUrl = settings.systemConfig?.install?.baseUrl;
+    if (!installBaseUrl) {
+      try {
+        const systemConfigDao = getSystemConfigDao();
+        const cachedConfig = (systemConfigDao as any).getCached?.();
+        installBaseUrl = cachedConfig?.install?.baseUrl;
+      } catch {
+        // Ignore and use detected URL
+      }
+    }
+
+    // Use configured baseUrl, or detect from request headers (respecting X-Forwarded-Proto)
+    const baseUrl = installBaseUrl || `${getActualProtocol(req)}://${getActualHost(req)}`;
     const registrationClientUri = `${baseUrl}/oauth/register/${clientId}`;
 
     // Create OAuth client
